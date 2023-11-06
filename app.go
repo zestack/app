@@ -9,19 +9,16 @@ import (
 )
 
 type App interface {
-	Init(options ...Option) error
 	Use(servlets ...Servlet) error
 	Start() error
 	Stop() error
 }
 
-var app App
+// 全局应用单例
+var app = New(Config{}).(*simpleApp)
 
-func Init(options ...Option) error {
-	if app != nil {
-		return app.Init(options...)
-	}
-	app = New(options...)
+func Init(config Config) error {
+	app.config = config
 	return nil
 }
 
@@ -38,9 +35,6 @@ func Start() error {
 
 // Stop 停止应用
 func Stop() error {
-	if app == nil {
-		return nil
-	}
 	return app.Stop()
 }
 

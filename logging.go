@@ -1,14 +1,31 @@
-package middleware
+package app
 
 import (
 	stdctx "context"
 	"fmt"
-	"github.com/rs/xid"
 	"net/http"
+	"os"
 	"time"
+
+	"github.com/rs/xid"
 	"zestack.dev/log"
 	"zestack.dev/slim"
 )
+
+type LoggingConfig struct {
+	// DisableRequestID 是否开启 RequestID
+	DisableRequestID bool
+	// ForkedPrefixes 自定义的关联前缀的日志实例到请求上下文中，比如：
+	//
+	//   LoggingConfig{
+	//     DisableRequestID: map[string]string{
+	//       "db:logger":    "db",    // 将数据库操作与请求关联
+	//       "redis:logger": "redis", // 将 redis 操作与请求关联
+	//       //...其它关联
+	//     }
+	//   }
+	ForkedPrefixes map[string]string
+}
 
 type color int
 
@@ -27,33 +44,8 @@ func (u color) wrap(s string) string {
 	return fmt.Sprintf("\x1b[%dm%s\x1b[0m", u, s)
 }
 
-// LoggingConfig 日志打印配置
-type LoggingConfig struct {
-	// DisableRequestID 是否开启 RequestID
-	DisableRequestID bool
-	// KeyedPrefixInContext 自定义的关联前缀的日志实例到请求上下文中，比如：
-	//
-	//   LoggingConfig{
-	//     DisableRequestID: false,
-	//     DisableRequestID: map[string]string{
-	//       "db:logger":    "db",    // 将数据库操作与请求关联
-	//       "redis:logger": "redis", // 将 redis 操作与请求关联
-	//       //...其它关联
-	//     }
-	//   }
-	KeyedPrefixInContext map[string]string
-}
-
-var DefaultLoggingConfig = LoggingConfig{
-	DisableRequestID: false,
-}
-
-func LoggingWithConfig(config LoggingConfig) slim.MiddlewareFunc {
-	return config.ToMiddleware()
-}
-
-func Logging() slim.MiddlewareFunc {
-	return LoggingWithConfig(DefaultLoggingConfig)
+func noColorIsSet() bool {
+	return os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb"
 }
 
 func requestId(c slim.Context) string {
@@ -65,21 +57,20 @@ func requestId(c slim.Context) string {
 	return id
 }
 
-func (config LoggingConfig) ToMiddleware() slim.MiddlewareFunc {
+func logging(config LoggingConfig) slim.MiddlewareFunc {
 	return func(c slim.Context, next slim.HandlerFunc) (err error) {
 		start := time.Now()
 		l := log.Default()
 		if !config.DisableRequestID {
-			id := requestId(c)
-			l = l.With(log.String("id", id))
+			l = l.With(log.String("id", requestId(c)))
 		}
 		ctx := stdctx.WithValue(c.Context(), "logger", l)
-		if len(config.KeyedPrefixInContext) > 0 {
-			for key, prefix := range config.KeyedPrefixInContext {
+		if len(config.ForkedPrefixes) > 0 {
+			for key, prefix := range config.ForkedPrefixes {
 				ctx = stdctx.WithValue(ctx, key, l.WithPrefix(prefix))
 			}
 		}
-		l.Info("Started %s %s for %s", c.Request().Method, c.RequestURI(), c.RealIP())
+		l.Infof("Started %s %s for %s", c.Request().Method, c.RequestURI(), c.RealIP())
 		c.SetRequest(c.Request().WithContext(ctx))
 		c.SetLogger(l)
 		if err = next(c); err != nil {
@@ -96,7 +87,7 @@ func (config LoggingConfig) ToMiddleware() slim.MiddlewareFunc {
 			stop.Sub(start).String(),
 		)
 		var colorize color
-		if w, ok := l.Output().(*log.Writer); ok && w.IsColorful() {
+		if w, ok := l.Output().(*log.Writer); ok && w.IsColorful() && !noColorIsSet() {
 			if status >= 500 {
 				colorize = cyan
 			} else if status >= 400 {

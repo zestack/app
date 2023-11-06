@@ -8,52 +8,33 @@ import (
 	"sort"
 	"time"
 
-	"zestack.dev/app/middleware"
 	"zestack.dev/env"
 	"zestack.dev/log"
 	"zestack.dev/slim"
 )
 
-type SimpleApp struct {
-	options  *Options
+type simpleApp struct {
+	config   Config
 	servlets servlets
-	status   int32
 	slim     *slim.Slim
-	inits    map[string]*servletInitContext
 	started  chan struct{}
 	exit     chan chan error
 }
 
-func New(options ...Option) App {
-	s := &SimpleApp{}
-	s.started = make(chan struct{})
-	s.exit = make(chan chan error)
-	_ = s.Init(options...)
-	return s
+func New(config Config) App {
+	return &simpleApp{
+		config:  config,
+		started: make(chan struct{}),
+		exit:    make(chan chan error),
+	}
 }
 
-func (s *SimpleApp) Init(options ...Option) error {
-	select {
-	case <-s.started:
-		return errors.New("server already started")
-	default:
-	}
-	s.options = &Options{
-		maxHeaderBytes: env.Int("SERVER_MAX_HEADER_BYTES", http.DefaultMaxHeaderBytes),
-		readTimeout:    env.Duration("SERVER_READ_TIMEOUT", 10*time.Second),
-		writeTimeout:   env.Duration("SERVER_WRITE_TIMEOUT", 10*time.Second),
-		idleTimeout:    env.Duration("SERVER_IDLE_TIMEOUT", 120*time.Second),
-	}
-	for _, option := range options {
-		option(s.options)
-	}
-	if s.slim != nil {
-		s.slim = nil
-	}
-	return nil
+type simpleServlet struct {
+	Servlet
+	init *servletInitContext
 }
 
-func (s *SimpleApp) Use(servlets ...Servlet) error {
+func (s *simpleApp) Use(servlets ...Servlet) error {
 	select {
 	case <-s.started:
 		return errors.New("app: server already started")
@@ -62,18 +43,22 @@ func (s *SimpleApp) Use(servlets ...Servlet) error {
 	if len(servlets) == 0 {
 		return nil
 	}
-	for _, servlet := range servlets {
+	for i, servlet := range servlets {
 		for _, used := range s.servlets {
 			if used.Name() == servlet.Name() {
 				return fmt.Errorf(`app: servlet "%s" already registered`, servlet.Name())
 			}
+		}
+		servlets[i] = &simpleServlet{
+			Servlet: servlet,
+			init:    nil,
 		}
 	}
 	s.servlets = append(s.servlets, servlets...)
 	return nil
 }
 
-func (s *SimpleApp) Start() error {
+func (s *simpleApp) Start() error {
 	select {
 	case <-s.started:
 		return errors.New("app: server already started")
@@ -86,6 +71,7 @@ func (s *SimpleApp) Start() error {
 			err = fn()
 		}
 	}
+	call(s.ensureConfig)
 	call(s.sortServlets)    // 按优先级排序
 	call(s.initServlets)    // 初始化网络组件
 	call(s.configureKernel) // 配置应用
@@ -95,7 +81,31 @@ func (s *SimpleApp) Start() error {
 	return err
 }
 
-func (s *SimpleApp) sortServlets() error {
+func (s *simpleApp) ensureConfig() (err error) {
+	if s.config.Server.Addr == nil {
+		addr := env.String("SERVER_ADDR", "0.0.0.0")
+		port := env.Int("SERVER_PORT", 1234)
+		s.config.Server.Addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
+		if err != nil {
+			return
+		}
+	}
+	if s.config.Server.MaxHeaderBytes <= 0 {
+		s.config.Server.MaxHeaderBytes = env.Int("SERVER_MAX_HEADER_BYTES", http.DefaultMaxHeaderBytes)
+	}
+	if s.config.Server.WriteTimeout <= 0 {
+		s.config.Server.WriteTimeout = env.Duration("SERVER_WRITE_TIMEOUT", 10*time.Second)
+	}
+	if s.config.Server.ReadTimeout <= 0 {
+		s.config.Server.ReadTimeout = env.Duration("SERVER_READ_TIMEOUT", 10*time.Second)
+	}
+	if s.config.Server.IdleTimeout <= 0 {
+		s.config.Server.IdleTimeout = env.Duration("SERVER_IDLE_TIMEOUT", 120*time.Second)
+	}
+	return
+}
+
+func (s *simpleApp) sortServlets() error {
 	if s.servlets.Len() == 0 {
 		return errors.New("no registers servlet")
 	}
@@ -103,16 +113,11 @@ func (s *SimpleApp) sortServlets() error {
 	return nil
 }
 
-func (s *SimpleApp) initServlets() error {
-	if s.inits == nil {
-		s.inits = make(map[string]*servletInitContext)
-	} else {
-		clear(s.inits)
-	}
+func (s *simpleApp) initServlets() error {
 	sort.Sort(s.servlets)
 	for _, servlet := range s.servlets {
 		ctx := NewServletInitContext().(*servletInitContext)
-		s.inits[servlet.Name()] = ctx
+		servlet.(*simpleServlet).init = ctx
 		err := servlet.Init(ctx)
 		if err != nil {
 			return err
@@ -121,23 +126,21 @@ func (s *SimpleApp) initServlets() error {
 	return nil
 }
 
-func (s *SimpleApp) configureKernel() error {
+func (s *simpleApp) configureKernel() error {
 	kernel := slim.New()
 	kernel.Debug = !env.IsEnv("prod")
 	kernel.Logger = log.Default()
-	kernel.Use(slim.Recover())
-	kernel.Use(middleware.LoggingWithConfig(middleware.LoggingConfig{
-		DisableRequestID:     s.options.disableRequestID,
-		KeyedPrefixInContext: s.options.keyedLogging,
-	}))
+	kernel.Use(slim.RecoverWithConfig(s.config.Recover))
+	kernel.Use(cors(s.config.CORS))
+	kernel.Use(logging(s.config.Logging))
 	s.slim = kernel
 	return nil
 }
 
-func (s *SimpleApp) configureRoutes() error {
+func (s *simpleApp) configureRoutes() error {
 	// 按 Servlet 的顺序注册路由
 	for _, servlet := range s.servlets {
-		ctx := s.inits[servlet.Name()]
+		ctx := servlet.(*simpleServlet).init
 		for _, route := range ctx.routes {
 			route(s.slim)
 		}
@@ -145,7 +148,7 @@ func (s *SimpleApp) configureRoutes() error {
 	return nil
 }
 
-func (s *SimpleApp) bootServlets() error {
+func (s *simpleApp) bootServlets() error {
 	for _, servlet := range s.servlets {
 		err := servlet.Bootstrap()
 		if err != nil {
@@ -155,29 +158,18 @@ func (s *SimpleApp) bootServlets() error {
 	return nil
 }
 
-func (s *SimpleApp) bootstrap() error {
-	addr := env.String("SERVER_ADDR", "0.0.0.0")
-	port := env.Int("SERVER:PORT", 1234)
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", addr, port))
+func (s *simpleApp) bootstrap() error {
+	ln, err := newListener(s)
 	if err != nil {
 		return err
 	}
-	listener = net.Listener(TCPKeepAliveListener{
-		TCPListener: listener.(*net.TCPListener),
-	})
-	httpServer := &http.Server{
-		Handler:        s.slim,
-		MaxHeaderBytes: s.options.maxHeaderBytes,
-		ReadTimeout:    s.options.readTimeout,
-		WriteTimeout:   s.options.writeTimeout,
-		IdleTimeout:    s.options.idleTimeout,
-	}
 	go func() {
-		if srvErr := httpServer.Serve(listener); srvErr != nil {
+		srv := newServer(s)
+		if srvErr := srv.Serve(ln); srvErr != nil {
 			log.Error("encountered an error while serving listener: ", srvErr)
 		}
 	}()
-	log.Infof("Listening on %s", listener.Addr().String())
+	log.Infof("Listening on %s", ln.Addr().String())
 	// 监听停止命令，停止网络服务
 	go func() {
 		errChan := <-s.exit
@@ -188,12 +180,12 @@ func (s *SimpleApp) bootstrap() error {
 			}
 		}
 		// stop the listener
-		errChan <- listener.Close()
+		errChan <- ln.Close()
 	}()
 	return nil
 }
 
-func (s *SimpleApp) Stop() error {
+func (s *simpleApp) Stop() error {
 	select {
 	case <-s.started:
 		exit := make(chan error)
@@ -202,36 +194,4 @@ func (s *SimpleApp) Stop() error {
 	default:
 		return nil
 	}
-}
-
-// TCPKeepAliveListener sets TCP keep-alive timeouts on accepted
-// connections. It's used by ListenAndServe and ListenAndServeTLS so
-// dead TCP connections (e.g., closing laptop mid-download) eventually
-// go away.
-//
-// This is here because it is not exposed in the stdlib and
-// we'd prefer to have a hold of the http.Server's net.Listener so we can close it
-// on shutdown.
-//
-// Taken from here: https://golang.org/src/net/http/server.go?s=63121:63175#L2120
-type TCPKeepAliveListener struct {
-	*net.TCPListener
-}
-
-// Accept accepts the next incoming call and returns the new
-// connection. KeepAlivePeriod is set properly.
-func (ln TCPKeepAliveListener) Accept() (c net.Conn, err error) {
-	tc, err := ln.AcceptTCP()
-	if err != nil {
-		return
-	}
-	err = tc.SetKeepAlive(true)
-	if err != nil {
-		return
-	}
-	err = tc.SetKeepAlivePeriod(3 * time.Minute)
-	if err != nil {
-		return
-	}
-	return tc, nil
 }
