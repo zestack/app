@@ -130,7 +130,10 @@ func (s *SimpleApp) configureKernel() error {
 	kernel.Debug = !env.IsEnv("prod")
 	kernel.Logger = log.Default()
 	kernel.Use(slim.Recover())
-	kernel.Use(middleware.Logging())
+	kernel.Use(middleware.LoggingWithConfig(middleware.LoggingConfig{
+		DisableRequestID:     s.options.disableRequestID,
+		KeyedPrefixInContext: s.options.keyedLogging,
+	}))
 	//kernel.Use(middleware.Cors())
 	s.slim = kernel
 	return nil

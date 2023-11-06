@@ -25,7 +25,10 @@ type Options struct {
 	// tls.Config.SetSessionTicketKeys. To use
 	// SetSessionTicketKeys, use Server.Serve with a TLS Listener
 	// instead.
-	tlsConfig *tls.Config
+	tlsConfig        *tls.Config
+	disableRequestID bool
+	// keyedLogging
+	keyedLogging map[string]string
 }
 
 type Option func(o *Options)
@@ -57,5 +60,20 @@ func IdleTimeout(idleTimeout time.Duration) Option {
 func TLSConfig(tlsConfig *tls.Config) Option {
 	return func(o *Options) {
 		o.tlsConfig = tlsConfig
+	}
+}
+
+func DisableRequestID(disable bool) Option {
+	return func(o *Options) {
+		o.disableRequestID = disable
+	}
+}
+
+func KeyedLogging(key, prefix string) Option {
+	return func(o *Options) {
+		if o.keyedLogging == nil {
+			o.keyedLogging = make(map[string]string)
+		}
+		o.keyedLogging[key] = prefix
 	}
 }
