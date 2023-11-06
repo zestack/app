@@ -19,7 +19,7 @@ type SimpleApp struct {
 	servlets servlets
 	status   int32
 	slim     *slim.Slim
-	configs  map[string]*servletConfig
+	inits    map[string]*servletInitContext
 	started  chan struct{}
 	exit     chan chan error
 }
@@ -47,9 +47,6 @@ func (s *SimpleApp) Init(options ...Option) error {
 	}
 	if s.slim != nil {
 		s.slim = nil
-	}
-	if len(s.configs) > 0 {
-		clear(s.configs)
 	}
 	if s.exit == nil {
 		s.exit = make(chan chan error)
@@ -108,16 +105,16 @@ func (s *SimpleApp) sortServlets() error {
 }
 
 func (s *SimpleApp) initServlets() error {
-	if s.configs == nil {
-		s.configs = make(map[string]*servletConfig)
+	if s.inits == nil {
+		s.inits = make(map[string]*servletInitContext)
 	} else {
-		clear(s.configs)
+		clear(s.inits)
 	}
 	sort.Sort(s.servlets)
 	for _, servlet := range s.servlets {
-		cfg := &servletConfig{}
-		s.configs[servlet.Name()] = cfg
-		err := servlet.Init(cfg)
+		ctx := NewServletInitContext().(*servletInitContext)
+		s.inits[servlet.Name()] = ctx
+		err := servlet.Init(ctx)
 		if err != nil {
 			return err
 		}
@@ -134,7 +131,6 @@ func (s *SimpleApp) configureKernel() error {
 		DisableRequestID:     s.options.disableRequestID,
 		KeyedPrefixInContext: s.options.keyedLogging,
 	}))
-	//kernel.Use(middleware.Cors())
 	s.slim = kernel
 	return nil
 }
@@ -142,13 +138,9 @@ func (s *SimpleApp) configureKernel() error {
 func (s *SimpleApp) configureRoutes() error {
 	// 按 Servlet 的顺序注册路由
 	for _, servlet := range s.servlets {
-		cfg := s.configs[servlet.Name()]
-		for _, r := range cfg.routes {
-			router := s.slim.RouterFor(r.host)
-			if router == nil {
-				router = s.slim.Host(r.host)
-			}
-			router.Route(r.prefix, r.register)
+		ctx := s.inits[servlet.Name()]
+		for _, route := range ctx.routes {
+			route(s.slim)
 		}
 	}
 	return nil
