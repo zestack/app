@@ -11,6 +11,23 @@ import (
 	"zestack.dev/slim"
 )
 
+type color int
+
+var (
+	cyan   = color(96)
+	red    = color(91)
+	yellow = color(93)
+	white  = color(97)
+	green  = color(92)
+)
+
+func (u color) wrap(s string) string {
+	if u < 91 {
+		return s
+	}
+	return fmt.Sprintf("\x1b[%dm%s\x1b[0m", u, s)
+}
+
 type LoggingConfig struct {
 	DisableRequestID bool
 }
@@ -53,25 +70,30 @@ func (config LoggingConfig) ToMiddleware() slim.MiddlewareFunc {
 		stop := time.Now()
 		status := c.Response().Status()
 		content := fmt.Sprintf(
-			"Completed %s %s %v %s in %v",
-			c.Request().Method, c.RequestURI(), status,
-			http.StatusText(c.Response().Status()), stop.Sub(start),
+			"Completed %s %s %v %s in %s",
+			c.Request().Method,
+			c.RequestURI(),
+			status,
+			http.StatusText(c.Response().Status()),
+			stop.Sub(start).String(),
 		)
-		// TODO(hupeh): 打印颜色
-		//if status >= 500 {
-		//	content = color.Cyan(content)
-		//} else if status >= 400 {
-		//	content = color.Red(content)
-		//} else if status >= 300 {
-		//	if status == 304 {
-		//		content = color.Yellow(content)
-		//	} else {
-		//		content = color.White(content)
-		//	}
-		//} else if status >= 200 {
-		//	content = color.Green(content)
-		//}
-		l.Info(content)
+		var colorize color
+		if w, ok := l.Output().(*log.Writer); ok && w.IsColorful() {
+			if status >= 500 {
+				colorize = cyan
+			} else if status >= 400 {
+				colorize = red
+			} else if status >= 300 {
+				if status == 304 {
+					colorize = yellow
+				} else {
+					colorize = white
+				}
+			} else if status >= 200 {
+				colorize = green
+			}
+		}
+		l.Info(colorize.wrap(content))
 		return
 	}
 }
