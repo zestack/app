@@ -3,10 +3,9 @@ package middleware
 import (
 	stdctx "context"
 	"fmt"
+	"github.com/rs/xid"
 	"net/http"
 	"time"
-
-	"github.com/rs/xid"
 	"zestack.dev/log"
 	"zestack.dev/slim"
 )
@@ -28,8 +27,21 @@ func (u color) wrap(s string) string {
 	return fmt.Sprintf("\x1b[%dm%s\x1b[0m", u, s)
 }
 
+// LoggingConfig 日志打印配置
 type LoggingConfig struct {
+	// DisableRequestID 是否开启 RequestID
 	DisableRequestID bool
+	// KeyedPrefixInContext 自定义的关联前缀的日志实例到请求上下文中，比如：
+	//
+	//   LoggingConfig{
+	//     DisableRequestID: false,
+	//     DisableRequestID: map[string]string{
+	//       "db:logger":    "db",    // 将数据库操作与请求关联
+	//       "redis:logger": "redis", // 将 redis 操作与请求关联
+	//       //...其它关联
+	//     }
+	//   }
+	KeyedPrefixInContext map[string]string
 }
 
 var DefaultLoggingConfig = LoggingConfig{
@@ -60,6 +72,13 @@ func (config LoggingConfig) ToMiddleware() slim.MiddlewareFunc {
 		if !config.DisableRequestID {
 			id := requestId(c)
 			l = l.With(log.String("id", id))
+		}
+		if len(config.KeyedPrefixInContext) > 0 {
+			ctx := c.Request().Context()
+			for key, prefix := range config.KeyedPrefixInContext {
+				ctx = stdctx.WithValue(ctx, key, l.WithPrefix(prefix))
+			}
+			c.SetRequest(c.Request().WithContext(ctx))
 		}
 		l.Info("Started %s %s for %s", c.Request().Method, c.RequestURI(), c.RealIP())
 		c.SetRequest(c.Request().WithContext(stdctx.WithValue(c, "logger", l)))
