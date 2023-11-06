@@ -73,15 +73,14 @@ func (config LoggingConfig) ToMiddleware() slim.MiddlewareFunc {
 			id := requestId(c)
 			l = l.With(log.String("id", id))
 		}
+		ctx := stdctx.WithValue(c.Context(), "logger", l)
 		if len(config.KeyedPrefixInContext) > 0 {
-			ctx := c.Request().Context()
 			for key, prefix := range config.KeyedPrefixInContext {
 				ctx = stdctx.WithValue(ctx, key, l.WithPrefix(prefix))
 			}
-			c.SetRequest(c.Request().WithContext(ctx))
 		}
 		l.Info("Started %s %s for %s", c.Request().Method, c.RequestURI(), c.RealIP())
-		c.SetRequest(c.Request().WithContext(stdctx.WithValue(c, "logger", l)))
+		c.SetRequest(c.Request().WithContext(ctx))
 		c.SetLogger(l)
 		if err = next(c); err != nil {
 			c.Error(err)
