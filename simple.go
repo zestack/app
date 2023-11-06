@@ -177,7 +177,7 @@ func (s *SimpleApp) bootstrap() error {
 			log.Error("encountered an error while serving listener: ", srvErr)
 		}
 	}()
-	log.Info("Listening on %s", listener.Addr().String())
+	log.Infof("Listening on %s", listener.Addr().String())
 	// 监听停止命令，停止网络服务
 	go func() {
 		errChan := <-s.exit
