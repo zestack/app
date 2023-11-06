@@ -26,6 +26,8 @@ type SimpleApp struct {
 
 func New(options ...Option) App {
 	s := &SimpleApp{}
+	s.started = make(chan struct{})
+	s.exit = make(chan chan error)
 	_ = s.Init(options...)
 	return s
 }
@@ -47,9 +49,6 @@ func (s *SimpleApp) Init(options ...Option) error {
 	}
 	if s.slim != nil {
 		s.slim = nil
-	}
-	if s.exit == nil {
-		s.exit = make(chan chan error)
 	}
 	return nil
 }
