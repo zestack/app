@@ -74,7 +74,7 @@ func logging(config LoggingConfig) slim.MiddlewareFunc {
 		c.SetRequest(c.Request().WithContext(ctx))
 		c.SetLogger(l)
 		if err = next(c); err != nil {
-			c.Error(err)
+			c.Logger().Error(err)
 		}
 		stop := time.Now()
 		status := c.Response().Status()
