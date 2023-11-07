@@ -17,7 +17,7 @@ type Config struct {
 	Routing RoutingConfig
 }
 
-func (c Config) ensure() error {
+func (c *Config) ensure() error {
 	err := c.Server.ensure()
 	if err != nil {
 		return err

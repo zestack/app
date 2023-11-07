@@ -36,7 +36,7 @@ type ServerConfig struct {
 }
 
 // ensure 确保服务器配置正确，如果未设置则加载环境变量
-func (s ServerConfig) ensure() (err error) {
+func (s *ServerConfig) ensure() (err error) {
 	if s.Addr == nil {
 		addr := env.String("SERVER_ADDR", "0.0.0.0")
 		port := env.Int("SERVER_PORT", 1234)
