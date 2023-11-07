@@ -3,11 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
 	"sort"
-	"time"
-
 	"zestack.dev/env"
 	"zestack.dev/log"
 	"zestack.dev/slim"
@@ -82,27 +78,7 @@ func (s *simpleApp) Start() error {
 }
 
 func (s *simpleApp) ensureConfig() (err error) {
-	if s.config.Server.Addr == nil {
-		addr := env.String("SERVER_ADDR", "0.0.0.0")
-		port := env.Int("SERVER_PORT", 1234)
-		s.config.Server.Addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
-		if err != nil {
-			return
-		}
-	}
-	if s.config.Server.MaxHeaderBytes <= 0 {
-		s.config.Server.MaxHeaderBytes = env.Int("SERVER_MAX_HEADER_BYTES", http.DefaultMaxHeaderBytes)
-	}
-	if s.config.Server.WriteTimeout <= 0 {
-		s.config.Server.WriteTimeout = env.Duration("SERVER_WRITE_TIMEOUT", 10*time.Second)
-	}
-	if s.config.Server.ReadTimeout <= 0 {
-		s.config.Server.ReadTimeout = env.Duration("SERVER_READ_TIMEOUT", 10*time.Second)
-	}
-	if s.config.Server.IdleTimeout <= 0 {
-		s.config.Server.IdleTimeout = env.Duration("SERVER_IDLE_TIMEOUT", 120*time.Second)
-	}
-	return
+	return s.config.ensure()
 }
 
 func (s *simpleApp) sortServlets() error {
@@ -133,6 +109,7 @@ func (s *simpleApp) configureKernel() error {
 	kernel.Use(slim.RecoverWithConfig(s.config.Recover))
 	kernel.Use(cors(s.config.CORS))
 	kernel.Use(logging(s.config.Logging))
+	s.config.Routing.use(kernel)
 	s.slim = kernel
 	return nil
 }

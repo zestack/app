@@ -1,6 +1,8 @@
 package app
 
-import "zestack.dev/slim"
+import (
+	"zestack.dev/slim"
+)
 
 type Config struct {
 	// Server 服务器配置
@@ -11,4 +13,14 @@ type Config struct {
 	CORS CORSConfig
 	// Recover 错误拦截配置
 	Recover slim.RecoverConfig
+	// Routing 路由配置
+	Routing RoutingConfig
+}
+
+func (c Config) ensure() error {
+	err := c.Server.ensure()
+	if err != nil {
+		return err
+	}
+	return nil
 }

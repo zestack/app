@@ -2,9 +2,11 @@ package app
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
+	"zestack.dev/env"
 )
 
 // ServerConfig 服务器配置
@@ -31,6 +33,31 @@ type ServerConfig struct {
 	// SetSessionTicketKeys, use Server.Serve with a TLS Listener
 	// instead.
 	TLSConfig *tls.Config
+}
+
+// ensure 确保服务器配置正确，如果未设置则加载环境变量
+func (s ServerConfig) ensure() (err error) {
+	if s.Addr == nil {
+		addr := env.String("SERVER_ADDR", "0.0.0.0")
+		port := env.Int("SERVER_PORT", 1234)
+		s.Addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
+		if err != nil {
+			return
+		}
+	}
+	if s.MaxHeaderBytes <= 0 {
+		s.MaxHeaderBytes = env.Int("SERVER_MAX_HEADER_BYTES", http.DefaultMaxHeaderBytes)
+	}
+	if s.WriteTimeout <= 0 {
+		s.WriteTimeout = env.Duration("SERVER_WRITE_TIMEOUT", 10*time.Second)
+	}
+	if s.ReadTimeout <= 0 {
+		s.ReadTimeout = env.Duration("SERVER_READ_TIMEOUT", 10*time.Second)
+	}
+	if s.IdleTimeout <= 0 {
+		s.IdleTimeout = env.Duration("SERVER_IDLE_TIMEOUT", 120*time.Second)
+	}
+	return
 }
 
 func newListener(app *simpleApp) (net.Listener, error) {
