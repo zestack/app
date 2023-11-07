@@ -106,9 +106,9 @@ func (s *simpleApp) configureKernel() error {
 	kernel := slim.New()
 	kernel.Debug = !env.IsEnv("prod")
 	kernel.Logger = log.Default()
+	kernel.Use(logging(s.config.Logging))
 	kernel.Use(slim.RecoverWithConfig(s.config.Recover))
 	kernel.Use(cors(s.config.CORS))
-	kernel.Use(logging(s.config.Logging))
 	s.config.Routing.use(kernel)
 	s.slim = kernel
 	return nil
