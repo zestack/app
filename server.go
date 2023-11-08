@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 	"zestack.dev/env"
+	"zestack.dev/slim"
 )
 
 // ServerConfig 服务器配置
@@ -33,6 +34,14 @@ type ServerConfig struct {
 	// SetSessionTicketKeys, use Server.Serve with a TLS Listener
 	// instead.
 	TLSConfig *tls.Config
+	// MultipartMemoryLimit 文件上传大小限制
+	MultipartMemoryLimit int64
+}
+
+func (s *ServerConfig) use(kernel *slim.Slim) {
+	if s.MultipartMemoryLimit > 0 {
+		kernel.MultipartMemoryLimit = s.MultipartMemoryLimit
+	}
 }
 
 // ensure 确保服务器配置正确，如果未设置则加载环境变量
