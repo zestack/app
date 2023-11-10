@@ -58,13 +58,13 @@ func (s *ServerConfig) ensure() (err error) {
 		s.MaxHeaderBytes = env.Int("SERVER_MAX_HEADER_BYTES", http.DefaultMaxHeaderBytes)
 	}
 	if s.WriteTimeout <= 0 {
-		s.WriteTimeout = env.Duration("SERVER_WRITE_TIMEOUT", 10*time.Second)
+		s.WriteTimeout = env.Duration("SERVER_WRITE_TIMEOUT")
 	}
 	if s.ReadTimeout <= 0 {
-		s.ReadTimeout = env.Duration("SERVER_READ_TIMEOUT", 10*time.Second)
+		s.ReadTimeout = env.Duration("SERVER_READ_TIMEOUT")
 	}
 	if s.IdleTimeout <= 0 {
-		s.IdleTimeout = env.Duration("SERVER_IDLE_TIMEOUT", 120*time.Second)
+		s.IdleTimeout = env.Duration("SERVER_IDLE_TIMEOUT")
 	}
 	return
 }
