@@ -85,6 +85,7 @@ func newListener(app *simpleApp) (net.Listener, error) {
 func newServer(app *simpleApp) *http.Server {
 	config := app.config.Server
 	return &http.Server{
+		Addr:           config.Addr.String(),
 		Handler:        app.slim,
 		MaxHeaderBytes: config.MaxHeaderBytes,
 		ReadTimeout:    config.ReadTimeout,

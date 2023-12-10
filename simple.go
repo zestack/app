@@ -106,8 +106,8 @@ func (s *simpleApp) configureKernel() error {
 	kernel := slim.New()
 	kernel.Debug = !env.IsEnv("prod")
 	kernel.Logger = log.Default()
-	kernel.Use(logging(s.config.Logging))
-	kernel.Use(slim.RecoverWithConfig(s.config.Recover))
+	kernel.Use(slim.LoggingWithConfig(s.config.Logging))
+	kernel.Use(slim.RecoveryWithConfig(s.config.Recover))
 	kernel.Use(cors(s.config.CORS))
 	s.config.Server.use(kernel)
 	s.config.Routing.use(kernel)
@@ -137,17 +137,12 @@ func (s *simpleApp) bootServlets() error {
 }
 
 func (s *simpleApp) bootstrap() error {
-	ln, err := newListener(s)
-	if err != nil {
-		return err
-	}
 	go func() {
 		srv := newServer(s)
-		if srvErr := srv.Serve(ln); srvErr != nil {
+		if srvErr := s.slim.StartServer(srv); srvErr != nil {
 			log.Error("encountered an error while serving listener: ", srvErr)
 		}
 	}()
-	log.Infof("Listening on %s", ln.Addr().String())
 	// 监听停止命令，停止网络服务
 	go func() {
 		errChan := <-s.exit
@@ -158,7 +153,7 @@ func (s *simpleApp) bootstrap() error {
 			}
 		}
 		// stop the listener
-		errChan <- ln.Close()
+		errChan <- s.slim.Close()
 	}()
 	return nil
 }
