@@ -2,8 +2,6 @@ module zestack.dev/app
 
 go 1.21.0
 
-toolchain go1.21.3
-
 require (
 	zestack.dev/env v0.0.0-20231108072412-56ac67eccd5b
 	zestack.dev/log v0.0.0-20231117080419-9cf5074e8108
@@ -15,9 +13,9 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/rs/xid v1.5.0 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/sync v0.5.0 // indirect
+	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	zestack.dev/cast v0.0.0-20231110050311-ce46a3bcb7c1 // indirect
