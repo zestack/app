@@ -19,7 +19,7 @@ type Servlet interface {
 type servlets []Servlet
 
 func (s servlets) Len() int           { return len(s) }
-func (s servlets) Less(i, j int) bool { return s[i].Priority() > s[j].Priority() }
+func (s servlets) Less(i, j int) bool { return s[i].Priority() < s[j].Priority() }
 func (s servlets) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 type Controller interface {
