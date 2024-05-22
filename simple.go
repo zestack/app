@@ -67,7 +67,7 @@ func (s *simpleApp) Start() error {
 			err = fn()
 		}
 	}
-	call(s.ensureConfig)
+	call(s.ensureConfig)    // 确认必要的配置
 	call(s.sortServlets)    // 按优先级排序
 	call(s.initServlets)    // 初始化网络组件
 	call(s.configureKernel) // 配置应用
@@ -105,7 +105,7 @@ func (s *simpleApp) initServlets() error {
 func (s *simpleApp) configureKernel() error {
 	kernel := slim.New()
 	kernel.Debug = !env.IsEnv("prod")
-	kernel.Logger = log.Default()
+	kernel.Logger = s.config.Logger
 	kernel.Use(slim.LoggingWithConfig(s.config.Logging))
 	kernel.Use(slim.RecoveryWithConfig(s.config.Recover))
 	kernel.Use(cors(s.config.CORS))

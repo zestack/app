@@ -1,6 +1,7 @@
 package app
 
 import (
+	"zestack.dev/log"
 	"zestack.dev/slim"
 )
 
@@ -17,12 +18,17 @@ type Config struct {
 	Recover slim.RecoveryConfig
 	// Routing 路由配置
 	Routing RoutingConfig
+	// Logger 日志打印接口
+	Logger log.Logger
 }
 
 func (c *Config) ensure() error {
 	err := c.Server.ensure()
 	if err != nil {
 		return err
+	}
+	if c.Logger == nil {
+		c.Logger = log.Default()
 	}
 	return nil
 }
