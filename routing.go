@@ -17,6 +17,7 @@ type RoutingConfig struct {
 	MultipartMemoryLimit int64  // 文件上传大小限制
 	PrettyIndent         string // json/xml 格式化缩进
 	JSONPCallbacks       []string
+	RouterCreator        func(s *slim.Slim) slim.Router
 	Middleware           []slim.MiddlewareFunc
 	Negotiator           *slim.Negotiator
 }
@@ -45,6 +46,9 @@ func (c RoutingConfig) use(s *slim.Slim) {
 	}
 	if len(c.JSONPCallbacks) > 0 {
 		s.JSONPCallbacks = c.JSONPCallbacks[:]
+	}
+	if c.RouterCreator != nil {
+		s.ResetRouterCreator(c.RouterCreator)
 	}
 	if len(c.Middleware) > 0 {
 		s.Use(c.Middleware...)
