@@ -26,6 +26,10 @@ type Controller interface {
 	InitRoutes(r slim.RouteCollector)
 }
 
+type PrefixedController interface {
+	RoutePrefix() string
+}
+
 type ControllerFunc func(r slim.RouteCollector)
 
 func (f ControllerFunc) InitRoutes(r slim.RouteCollector) {
@@ -57,28 +61,35 @@ func (c *servletInitContext) Use(middleware ...slim.MiddlewareFunc) {
 
 // Routes 注册路由
 func (c *servletInitContext) Routes(controllers ...Controller) {
-	c.routes = append(c.routes, func(s *slim.Slim) {
-		s.Router().Group(func(r slim.RouteCollector) {
-			r.Use(c.middleware...)
-			for _, controller := range controllers {
-				controller.InitRoutes(r)
-			}
+	if len(controllers) > 0 {
+		c.routes = append(c.routes, func(s *slim.Slim) {
+			c.registerRoutes(s.Router(), controllers)
 		})
-	})
+	}
 }
 
 // Hosts 注册与指定 host 相关的路由
 func (c *servletInitContext) Hosts(host string, controllers ...Controller) {
-	c.routes = append(c.routes, func(s *slim.Slim) {
-		router := s.RouterFor(host)
-		if router == nil {
-			router = s.Host(host)
-		}
-		router.Group(func(r slim.RouteCollector) {
-			r.Use(c.middleware...)
-			for _, controller := range controllers {
+	if len(controllers) > 0 {
+		c.routes = append(c.routes, func(s *slim.Slim) {
+			router := s.RouterFor(host)
+			if router == nil {
+				router = s.Host(host)
+			}
+			c.registerRoutes(router, controllers)
+		})
+	}
+}
+
+func (c *servletInitContext) registerRoutes(r slim.Router, controllers []Controller) {
+	r.Group(func(r slim.RouteCollector) {
+		r.Use(c.middleware...)
+		for _, controller := range controllers {
+			if rc, ok := controller.(PrefixedController); ok {
+				r.Route(rc.RoutePrefix(), controller.InitRoutes)
+			} else {
 				controller.InitRoutes(r)
 			}
-		})
+		}
 	})
 }
