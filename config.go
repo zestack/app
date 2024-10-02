@@ -1,7 +1,6 @@
 package app
 
 import (
-	"zestack.dev/log"
 	"zestack.dev/slim"
 )
 
@@ -19,7 +18,7 @@ type Config struct {
 	// Routing 路由配置
 	Routing RoutingConfig
 	// Logger 日志打印接口
-	Logger log.Logger
+	Logger *slim.Logger
 }
 
 func (c *Config) ensure() error {
@@ -28,7 +27,7 @@ func (c *Config) ensure() error {
 		return err
 	}
 	if c.Logger == nil {
-		c.Logger = log.Default()
+		c.Logger = slim.NewLogger(&slim.LoggerOptions{})
 	}
 	return nil
 }

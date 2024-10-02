@@ -4,7 +4,6 @@ go 1.21.0
 
 require (
 	zestack.dev/env v0.0.0-20231108072412-56ac67eccd5b
-	zestack.dev/log v0.0.0-20231117080419-9cf5074e8108
 	zestack.dev/slim v0.0.0-20231117080652-36c3a5fd1ea7
 )
 

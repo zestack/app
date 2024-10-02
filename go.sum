@@ -33,7 +33,5 @@ zestack.dev/color v0.0.0-20231117085405-57e9b4ca2e17 h1:H7v0MYxRvdaN8rMpKndiFviW
 zestack.dev/color v0.0.0-20231117085405-57e9b4ca2e17/go.mod h1:xbcV9sJd6b1iVHsF0sMoTMmlgGO1mDbjXYRBTfaa6Cs=
 zestack.dev/env v0.0.0-20231108072412-56ac67eccd5b h1:CTUPpnhGH2tgbk6tojd/GtWUttG36UwnOfp50ejarXE=
 zestack.dev/env v0.0.0-20231108072412-56ac67eccd5b/go.mod h1:p6QM9ckIdGcIfOmxgYE9SLj3+mwEy+qFokY4fdoGxJo=
-zestack.dev/log v0.0.0-20231117080419-9cf5074e8108 h1:vrmovf45AfQTgv30wlAFhQaBBmHrkbHJnoWR97vAxB8=
-zestack.dev/log v0.0.0-20231117080419-9cf5074e8108/go.mod h1:YK0SCjcIpqUp/uFZqj1bJNKJvYgMzBHpRkkcpWU3f/o=
 zestack.dev/slim v0.0.0-20231117080652-36c3a5fd1ea7 h1:B4t2bvn1gHGoQntp4IaEPxgx9/gqs9+Na2q4c0iXJwo=
 zestack.dev/slim v0.0.0-20231117080652-36c3a5fd1ea7/go.mod h1:aTsC1Y9bBMQiEK0ImZhgDhb3uqFX3n18ZXm8zD9+Ki8=

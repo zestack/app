@@ -1,11 +1,10 @@
 package app
 
 import (
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"zestack.dev/log"
 )
 
 type App interface {
@@ -47,7 +46,7 @@ func Run() error {
 
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)
-	log.Info("Received signal %s", <-ch)
+	slog.Info("Received signal " + (<-ch).String())
 
 	return Stop()
 }

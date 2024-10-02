@@ -3,10 +3,10 @@ package app
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 
 	"zestack.dev/env"
-	"zestack.dev/log"
 	"zestack.dev/slim"
 )
 
@@ -141,7 +141,7 @@ func (s *simpleApp) bootstrap() error {
 	go func() {
 		srv := newServer(s)
 		if srvErr := s.slim.StartServer(srv); srvErr != nil {
-			log.Error("encountered an error while serving listener: ", srvErr)
+			slog.Error("encountered an error while serving listener: " + srvErr.Error())
 		}
 	}()
 	// 监听停止命令，停止网络服务
@@ -150,7 +150,7 @@ func (s *simpleApp) bootstrap() error {
 		// 销毁注册的服务
 		for i := len(s.servlets) - 1; i >= 0; i-- {
 			if ex := s.servlets[i].Destroy(); ex != nil {
-				log.Warn("servlet Stop returned with error: ", ex)
+				slog.Warn("servlet Stop returned with error: " + ex.Error())
 			}
 		}
 		// stop the listener
